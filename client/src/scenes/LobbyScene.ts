@@ -1,12 +1,19 @@
 import Phaser from "phaser";
 import { getActiveSession, setActiveSession } from "../net/connection";
 import { sfxClick, sfxAnnounce } from "../audio/sfx";
+import { cx } from "../ui/layout";
 
 export class LobbyScene extends Phaser.Scene {
   private listText!: Phaser.GameObjects.Text;
   private codeText!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
   private ready = false;
+  private readyBtn!: Phaser.GameObjects.Rectangle;
+  private readyLabel!: Phaser.GameObjects.Text;
+  private startBtn!: Phaser.GameObjects.Rectangle;
+  private title!: Phaser.GameObjects.Text;
+  private leave!: Phaser.GameObjects.Text;
+  private startLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super("Lobby");
@@ -19,91 +26,24 @@ export class LobbyScene extends Phaser.Scene {
       return;
     }
 
-    const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor("#9fd4a5");
+    this.buildUi();
+    this.scale.on("resize", this.layout, this);
 
-    this.add
-      .text(width / 2, 40, "LOBI", {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: "36px",
-        color: "#e31c25",
-        stroke: "#fff",
-        strokeThickness: 6,
-      })
-      .setOrigin(0.5);
-
-    this.codeText = this.add
-      .text(width / 2, 90, `Kode: ${session.roomCode || "..."}`, {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: "42px",
-        color: "#1a1a1a",
-        backgroundColor: "#ffffff",
-        padding: { x: 16, y: 8 },
-      })
-      .setOrigin(0.5);
-
-    this.listText = this.add
-      .text(width / 2, 200, "", {
-        fontFamily: "Nunito, sans-serif",
-        fontSize: "18px",
-        color: "#1a1a1a",
-        align: "center",
-      })
-      .setOrigin(0.5, 0);
-
-    this.statusText = this.add
-      .text(width / 2, height - 120, "Menunggu pemain...", {
-        fontFamily: "Nunito, sans-serif",
-        fontSize: "14px",
-        color: "#333",
-      })
-      .setOrigin(0.5);
-
-    const readyBtn = this.add
-      .rectangle(width / 2 - 100, height - 60, 160, 48, 0x457b9d)
-      .setStrokeStyle(3, 0xffffff)
-      .setInteractive({ useHandCursor: true });
-    const readyLabel = this.add
-      .text(width / 2 - 100, height - 60, "Ready", {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: "20px",
-        color: "#fff",
-      })
-      .setOrigin(0.5);
-
-    readyBtn.on("pointerdown", () => {
+    this.readyBtn.on("pointerdown", () => {
       this.ready = !this.ready;
       sfxClick();
       session.room.send("ready", { ready: this.ready });
-      readyLabel.setText(this.ready ? "Cancel" : "Ready");
-      readyBtn.setFillStyle(this.ready ? 0xe9c46a : 0x457b9d);
+      this.readyLabel.setText(this.ready ? "Cancel" : "Ready");
+      this.readyBtn.setFillStyle(this.ready ? 0xe9c46a : 0x457b9d);
     });
 
-    const startBtn = this.add
-      .rectangle(width / 2 + 100, height - 60, 160, 48, 0xe31c25)
-      .setStrokeStyle(3, 0xffffff)
-      .setInteractive({ useHandCursor: true });
-    this.add
-      .text(width / 2 + 100, height - 60, "Mulai", {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: "20px",
-        color: "#fff",
-      })
-      .setOrigin(0.5);
-
-    startBtn.on("pointerdown", () => {
+    this.startBtn.on("pointerdown", () => {
       sfxClick();
       session.room.send("start", {});
     });
 
-    const leave = this.add
-      .text(40, 30, "← Keluar", {
-        fontFamily: "Nunito, sans-serif",
-        fontSize: "16px",
-        color: "#1a1a1a",
-      })
-      .setInteractive({ useHandCursor: true });
-    leave.on("pointerdown", async () => {
+    this.leave.on("pointerdown", async () => {
       await session.room.leave();
       setActiveSession(null);
       this.scene.start("Home");
@@ -123,7 +63,6 @@ export class LobbyScene extends Phaser.Scene {
     session.room.onStateChange(() => this.refresh());
     this.refresh();
 
-    // Transition when match starts
     this.events.on("update", () => {
       const phase = (session.room.state as { phase?: string }).phase;
       if (phase === "COUNTDOWN" || phase === "PLAYING") {
@@ -131,6 +70,102 @@ export class LobbyScene extends Phaser.Scene {
       }
     });
   }
+
+  private buildUi() {
+    const { width, height } = this.scale;
+    const mid = cx(this);
+
+    this.title = this.add
+      .text(mid, height * 0.06, "LOBI", {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: `${Math.max(32, Math.round(height * 0.055))}px`,
+        color: "#e31c25",
+        stroke: "#fff",
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5);
+
+    this.codeText = this.add
+      .text(mid, height * 0.16, `Kode: ...`, {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: `${Math.max(36, Math.round(height * 0.065))}px`,
+        color: "#1a1a1a",
+        backgroundColor: "#ffffff",
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5);
+
+    this.listText = this.add
+      .text(mid, height * 0.32, "", {
+        fontFamily: "Nunito, sans-serif",
+        fontSize: `${Math.max(16, Math.round(height * 0.026))}px`,
+        color: "#1a1a1a",
+        align: "center",
+      })
+      .setOrigin(0.5, 0);
+
+    this.statusText = this.add
+      .text(mid, height * 0.78, "Menunggu pemain...", {
+        fontFamily: "Nunito, sans-serif",
+        fontSize: `${Math.max(14, Math.round(height * 0.018))}px`,
+        color: "#333",
+      })
+      .setOrigin(0.5);
+
+    const btnW = Math.min(200, width * 0.18);
+    const btnH = Math.max(48, height * 0.055);
+    const by = height * 0.9;
+
+    this.readyBtn = this.add
+      .rectangle(mid - btnW * 0.65, by, btnW, btnH, 0x457b9d)
+      .setStrokeStyle(3, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    this.readyLabel = this.add
+      .text(mid - btnW * 0.65, by, "Ready", {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: `${Math.max(18, Math.round(btnH * 0.4))}px`,
+        color: "#fff",
+      })
+      .setOrigin(0.5);
+
+    this.startBtn = this.add
+      .rectangle(mid + btnW * 0.65, by, btnW, btnH, 0xe31c25)
+      .setStrokeStyle(3, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    this.startLabel = this.add
+      .text(mid + btnW * 0.65, by, "Mulai", {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: `${Math.max(18, Math.round(btnH * 0.4))}px`,
+        color: "#fff",
+      })
+      .setOrigin(0.5);
+
+    this.leave = this.add
+      .text(width * 0.04, height * 0.05, "← Keluar", {
+        fontFamily: "Nunito, sans-serif",
+        fontSize: `${Math.max(16, Math.round(height * 0.022))}px`,
+        color: "#1a1a1a",
+      })
+      .setInteractive({ useHandCursor: true });
+  }
+
+  private layout = () => {
+    const { width, height } = this.scale;
+    const mid = cx(this);
+    const btnW = Math.min(200, width * 0.18);
+    const btnH = Math.max(48, height * 0.055);
+    const by = height * 0.9;
+
+    this.title.setPosition(mid, height * 0.06);
+    this.codeText.setPosition(mid, height * 0.16);
+    this.listText.setPosition(mid, height * 0.32);
+    this.statusText.setPosition(mid, height * 0.78);
+    this.readyBtn.setPosition(mid - btnW * 0.65, by).setSize(btnW, btnH);
+    this.readyLabel.setPosition(mid - btnW * 0.65, by);
+    this.startBtn.setPosition(mid + btnW * 0.65, by).setSize(btnW, btnH);
+    this.startLabel.setPosition(mid + btnW * 0.65, by);
+    this.leave.setPosition(width * 0.04, height * 0.05);
+  };
 
   private refresh() {
     const session = getActiveSession();

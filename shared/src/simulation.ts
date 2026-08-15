@@ -454,7 +454,7 @@ function updateClimbing(
   state: SimulationState,
   player: SimPlayer,
   input: PlayerInput,
-  now: number,
+  _now: number,
   events: SimEvent[],
   rng: () => number
 ): void {
@@ -465,16 +465,7 @@ function updateClimbing(
     return;
   }
 
-  if (now - session.startedAt > session.duration + 80) {
-    // Missed window
-    player.climbSession = null;
-    player.lastClimbGrade = "miss";
-    player.lastClimbFlash = 0.45;
-    player.mode = "gripping";
-    events.push({ type: "climbResult", playerId: player.id, grade: "miss" });
-    return;
-  }
-
+  // No duration force-miss — client ping-pongs until the player taps.
   if (input.climbTap) {
     resolveClimbTap(
       state,

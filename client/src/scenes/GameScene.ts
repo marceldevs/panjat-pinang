@@ -3,6 +3,7 @@ import { CONFIG, ABILITY_LABELS, type AbilityType } from "@panjat/shared";
 import { getActiveSession } from "../net/connection";
 import { TouchControls } from "../ui/TouchControls";
 import { ClimbBar } from "../ui/ClimbBar";
+import { displayY } from "../ui/layout";
 import {
   drawKampungBackground,
   drawPoles,
@@ -45,6 +46,8 @@ interface Interp {
   t: number;
 }
 
+const POLE_TOP = CONFIG.prizeHeight * CONFIG.metersToPixels + 80;
+
 export class GameScene extends Phaser.Scene {
   private controls!: TouchControls;
   private climbBar!: ClimbBar;
@@ -76,10 +79,11 @@ export class GameScene extends Phaser.Scene {
     this.climbBar = new ClimbBar(this);
     this.wonCelebrated = false;
 
+    const h = this.scale.height;
     this.hud = this.add
       .text(12, 12, "", {
         fontFamily: "Nunito, sans-serif",
-        fontSize: "14px",
+        fontSize: `${Math.max(14, Math.round(h * 0.016))}px`,
         color: "#1a1a1a",
         backgroundColor: "#ffffffaa",
         padding: { x: 8, y: 6 },
@@ -88,9 +92,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(500);
 
     this.announce = this.add
-      .text(this.scale.width / 2, 70, "", {
+      .text(this.scale.width / 2, h * 0.08, "", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "22px",
+        fontSize: `${Math.max(22, Math.round(h * 0.028))}px`,
         color: "#e31c25",
         stroke: "#fff",
         strokeThickness: 5,
@@ -100,9 +104,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(500);
 
     this.countdownText = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, "", {
+      .text(this.scale.width / 2, h / 2, "", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "96px",
+        fontSize: `${Math.max(72, Math.round(h * 0.12))}px`,
         color: "#ffffff",
         stroke: "#e31c25",
         strokeThickness: 12,
@@ -111,12 +115,13 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(800);
 
-    this.cameras.main.setBounds(
-      0,
-      -40,
-      CONFIG.worldWidth,
-      CONFIG.prizeHeight * CONFIG.metersToPixels + 200
-    );
+    this.applyCameraBounds();
+
+    this.scale.on("resize", () => {
+      this.applyCameraBounds();
+      this.announce.setPosition(this.scale.width / 2, this.scale.height * 0.08);
+      this.countdownText.setPosition(this.scale.width / 2, this.scale.height / 2);
+    });
 
     session.room.onMessage("announce", (msg: { message?: string }) => {
       if (msg.message) {
@@ -139,6 +144,17 @@ export class GameScene extends Phaser.Scene {
     session.room.onStateChange((state) => this.onState(state));
   }
 
+  private applyCameraBounds() {
+    // Center 960-wide world in wider canvas; Y covers flipped climb range
+    const padX = Math.max(0, (this.scale.width - CONFIG.worldWidth) / 2);
+    this.cameras.main.setBounds(
+      -padX,
+      displayY(POLE_TOP) - 80,
+      CONFIG.worldWidth + padX * 2,
+      POLE_TOP + 200
+    );
+  }
+
   private onState(state: Record<string, unknown>) {
     const players = state.players as Map<string, RemotePlayer> | undefined;
     if (!players) return;
@@ -146,13 +162,15 @@ export class GameScene extends Phaser.Scene {
     players.forEach((p, id) => {
       const prev = this.interp.get(id);
       const spr = this.sprites.get(id);
-      const fromX = spr?.x ?? p.x;
-      const fromY = spr?.y ?? p.y;
+      const toX = p.x;
+      const toY = displayY(p.y);
+      const fromX = spr?.x ?? toX;
+      const fromY = spr?.y ?? toY;
       this.interp.set(id, {
         fromX: prev && spr ? spr.x : fromX,
         fromY: prev && spr ? spr.y : fromY,
-        toX: p.x,
-        toY: p.y,
+        toX,
+        toY,
         t: 0,
       });
 
@@ -161,7 +179,6 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Remove gone players
     for (const id of [...this.sprites.keys()]) {
       if (!players.has(id)) {
         this.sprites.get(id)?.destroy();
@@ -170,7 +187,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Pickups
     const pickups = state.pickups as Array<{
       id: string;
       x: number;
@@ -181,11 +197,12 @@ export class GameScene extends Phaser.Scene {
       for (const pk of pickups) {
         seen.add(pk.id);
         let s = this.pickups.get(pk.id);
+        const dy = displayY(pk.y);
         if (!s) {
-          s = this.add.circle(pk.x, pk.y, 12, 0xffd166).setStrokeStyle(2, 0xffffff);
+          s = this.add.circle(pk.x, dy, 12, 0xffd166).setStrokeStyle(2, 0xffffff);
           this.pickups.set(pk.id, s);
         }
-        s.setPosition(pk.x, pk.y);
+        s.setPosition(pk.x, dy);
       }
     }
     for (const [id, s] of this.pickups) {
@@ -195,7 +212,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Oiled poles
     const oiledRaw = String(state.oiledPoles || "");
     const oiled = new Set(
       oiledRaw
@@ -235,7 +251,6 @@ export class GameScene extends Phaser.Scene {
       winnerId?: string;
     };
 
-    // Countdown overlay
     if (state.phase === "COUNTDOWN") {
       const n = Math.ceil(state.countdownRemaining || 0);
       this.countdownText.setText(n > 0 ? String(n) : "GO!");
@@ -244,7 +259,6 @@ export class GameScene extends Phaser.Scene {
       this.countdownText.setVisible(false);
     }
 
-    // Interpolation
     const dt = dtMs / 1000;
     for (const [id, ip] of this.interp) {
       ip.t = Math.min(1, ip.t + dt * CONFIG.tickRate);
@@ -258,7 +272,6 @@ export class GameScene extends Phaser.Scene {
 
     const me = state.players?.get(session.sessionId);
     if (me) {
-      // Climb UI
       if (me.climbId && me.climbId !== this.lastClimbId) {
         this.lastClimbId = me.climbId;
         this.climbBar.start(
@@ -284,24 +297,23 @@ export class GameScene extends Phaser.Scene {
           `Ability: ${ability}`
       );
 
-      // Camera: follow highest active cluster, bias to self
-      let focusY = me.y;
+      let focusSimY = me.y;
       let focusX = me.x;
       if (state.players) {
         const actives = [...state.players.values()].filter((p) => !p.inactive);
         actives.sort((a, b) => b.progress - a.progress);
         const top = actives.slice(0, Math.min(3, actives.length));
         if (top.length) {
-          focusY = top.reduce((s, p) => s + p.y, 0) / top.length;
+          focusSimY = top.reduce((s, p) => s + p.y, 0) / top.length;
           focusX = top.reduce((s, p) => s + p.x, 0) / top.length;
-          // blend toward self
-          focusY = focusY * 0.55 + me.y * 0.45;
+          focusSimY = focusSimY * 0.55 + me.y * 0.45;
           focusX = focusX * 0.4 + me.x * 0.6;
         }
       }
+      const focusY = displayY(focusSimY);
       this.cameras.main.scrollY = Phaser.Math.Linear(
         this.cameras.main.scrollY,
-        Math.max(-40, focusY - 180),
+        focusY - this.scale.height * 0.35,
         0.1
       );
       this.cameras.main.scrollX = Phaser.Math.Linear(
@@ -311,7 +323,6 @@ export class GameScene extends Phaser.Scene {
       );
     }
 
-    // Send inputs ~30Hz
     this.sendAccum += dtMs;
     if (this.sendAccum >= 33 && state.phase === "PLAYING") {
       this.sendAccum = 0;

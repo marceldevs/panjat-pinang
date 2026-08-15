@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { getActiveSession } from "../net/connection";
 import { sfxClick, sfxWin } from "../audio/sfx";
 import { spawnConfetti } from "../world/draw";
+import { cx } from "../ui/layout";
 
 export class ResultsScene extends Phaser.Scene {
   constructor() {
@@ -15,15 +16,17 @@ export class ResultsScene extends Phaser.Scene {
       return;
     }
 
-    const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor("#1b7a4e");
     spawnConfetti(this);
     sfxWin();
 
+    const { width, height } = this.scale;
+    const mid = cx(this);
+
     this.add
-      .text(width / 2, 50, "HASIL", {
+      .text(mid, height * 0.08, "HASIL", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "42px",
+        fontSize: `${Math.max(36, Math.round(height * 0.06))}px`,
         color: "#ffffff",
         stroke: "#e31c25",
         strokeThickness: 8,
@@ -45,9 +48,9 @@ export class ResultsScene extends Phaser.Scene {
       : undefined;
 
     this.add
-      .text(width / 2, 110, winner ? `${winner.name} juara!` : "Selesai", {
+      .text(mid, height * 0.18, winner ? `${winner.name} juara!` : "Selesai", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "28px",
+        fontSize: `${Math.max(24, Math.round(height * 0.04))}px`,
         color: "#ffd166",
       })
       .setOrigin(0.5);
@@ -68,9 +71,9 @@ export class ResultsScene extends Phaser.Scene {
     });
 
     this.add
-      .text(width / 2, 180, lines.join("\n"), {
+      .text(mid, height * 0.28, lines.join("\n"), {
         fontFamily: "Nunito, sans-serif",
-        fontSize: "18px",
+        fontSize: `${Math.max(16, Math.round(height * 0.026))}px`,
         color: "#ffffff",
         align: "center",
         lineSpacing: 8,
@@ -78,15 +81,18 @@ export class ResultsScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
 
     const isHost = session.sessionId === state.hostId;
+    const btnW = Math.min(320, width * 0.3);
+    const btnH = Math.max(52, height * 0.055);
+    const by = height * 0.88;
 
     const rematch = this.add
-      .rectangle(width / 2, height - 70, 240, 52, 0xe31c25)
+      .rectangle(mid, by, btnW, btnH, 0xe31c25)
       .setStrokeStyle(4, 0xffffff)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(width / 2, height - 70, isHost ? "Main Lagi" : "Menunggu host...", {
+      .text(mid, by, isHost ? "Main Lagi" : "Menunggu host...", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "20px",
+        fontSize: `${Math.max(18, Math.round(btnH * 0.38))}px`,
         color: "#fff",
       })
       .setOrigin(0.5);

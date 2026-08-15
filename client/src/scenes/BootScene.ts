@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { unlockAudio, startMusic } from "../audio/sfx";
+import { cx } from "../ui/layout";
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -7,21 +8,22 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
+    const { height } = this.scale;
+    const mid = cx(this);
     this.cameras.main.setBackgroundColor("#7ec8e3");
     this.add
-      .text(width / 2, height / 2 - 20, "PANJAT PINANG", {
+      .text(mid, height / 2 - height * 0.04, "PANJAT PINANG", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "48px",
+        fontSize: `${Math.max(40, Math.round(height * 0.07))}px`,
         color: "#e31c25",
         stroke: "#ffffff",
         strokeThickness: 8,
       })
       .setOrigin(0.5);
     this.add
-      .text(width / 2, height / 2 + 36, "MAYHEM", {
+      .text(mid, height / 2 + height * 0.05, "MAYHEM", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "36px",
+        fontSize: `${Math.max(28, Math.round(height * 0.05))}px`,
         color: "#ffffff",
         stroke: "#e31c25",
         strokeThickness: 6,

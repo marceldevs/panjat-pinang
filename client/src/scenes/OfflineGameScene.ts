@@ -10,6 +10,7 @@ import {
 } from "@panjat/shared";
 import { TouchControls } from "../ui/TouchControls";
 import { ClimbBar } from "../ui/ClimbBar";
+import { displayY } from "../ui/layout";
 import {
   drawKampungBackground,
   drawPoles,
@@ -17,6 +18,8 @@ import {
   spawnConfetti,
 } from "../world/draw";
 import { sfxClimb, sfxBump, sfxPickup, sfxAbility, sfxWin } from "../audio/sfx";
+
+const POLE_TOP = CONFIG.prizeHeight * CONFIG.metersToPixels + 80;
 
 export class OfflineGameScene extends Phaser.Scene {
   private sim = createOfflineMatch().state;
@@ -30,6 +33,7 @@ export class OfflineGameScene extends Phaser.Scene {
   private accum = 0;
   private lastClimbId = "";
   private poles!: Phaser.GameObjects.Container;
+  private backBtn!: Phaser.GameObjects.Text;
 
   constructor() {
     super("OfflineGame");
@@ -45,10 +49,11 @@ export class OfflineGameScene extends Phaser.Scene {
     this.controls = new TouchControls(this);
     this.climbBar = new ClimbBar(this);
 
+    const h = this.scale.height;
     this.hud = this.add
       .text(12, 12, "", {
         fontFamily: "Nunito, sans-serif",
-        fontSize: "14px",
+        fontSize: `${Math.max(14, Math.round(h * 0.016))}px`,
         color: "#1a1a1a",
         backgroundColor: "#ffffffaa",
         padding: { x: 8, y: 6 },
@@ -57,9 +62,9 @@ export class OfflineGameScene extends Phaser.Scene {
       .setDepth(500);
 
     this.announce = this.add
-      .text(this.scale.width / 2, 80, "Latihan · Loncat ke tiang, lalu PANJAT", {
+      .text(this.scale.width / 2, h * 0.09, "Latihan · Loncat ke tiang, lalu PANJAT", {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: "18px",
+        fontSize: `${Math.max(18, Math.round(h * 0.022))}px`,
         color: "#e31c25",
         stroke: "#fff",
         strokeThickness: 4,
@@ -68,10 +73,10 @@ export class OfflineGameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(500);
 
-    const back = this.add
+    this.backBtn = this.add
       .text(this.scale.width - 12, 12, "Keluar", {
         fontFamily: "Nunito, sans-serif",
-        fontSize: "14px",
+        fontSize: `${Math.max(14, Math.round(h * 0.016))}px`,
         color: "#fff",
         backgroundColor: "#e31c25",
         padding: { x: 8, y: 4 },
@@ -80,13 +85,24 @@ export class OfflineGameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(500)
       .setInteractive({ useHandCursor: true });
-    back.on("pointerdown", () => this.scene.start("Home"));
+    this.backBtn.on("pointerdown", () => this.scene.start("Home"));
 
+    this.applyCameraBounds();
+
+    this.scale.on("resize", () => {
+      this.applyCameraBounds();
+      this.announce.setPosition(this.scale.width / 2, this.scale.height * 0.09);
+      this.backBtn.setPosition(this.scale.width - 12, 12);
+    });
+  }
+
+  private applyCameraBounds() {
+    const padX = Math.max(0, (this.scale.width - CONFIG.worldWidth) / 2);
     this.cameras.main.setBounds(
-      0,
-      -40,
-      CONFIG.worldWidth,
-      CONFIG.prizeHeight * CONFIG.metersToPixels + 200
+      -padX,
+      displayY(POLE_TOP) - 80,
+      CONFIG.worldWidth + padX * 2,
+      POLE_TOP + 200
     );
   }
 
@@ -167,7 +183,7 @@ export class OfflineGameScene extends Phaser.Scene {
         spr = makePlayerSprite(this, p.colorIndex, p.name);
         this.sprites.set(id, spr);
       }
-      spr.setPosition(p.x, p.y);
+      spr.setPosition(p.x, displayY(p.y));
       spr.setAlpha(p.mode === "ragdoll" ? 0.7 : p.inactive ? 0.35 : 1);
     }
 
@@ -175,11 +191,12 @@ export class OfflineGameScene extends Phaser.Scene {
     for (const pk of this.sim.pickups) {
       seenPickups.add(pk.id);
       let s = this.pickupSprites.get(pk.id);
+      const dy = displayY(pk.y);
       if (!s) {
-        s = this.add.circle(pk.x, pk.y, 12, 0xffd166).setStrokeStyle(2, 0xffffff);
+        s = this.add.circle(pk.x, dy, 12, 0xffd166).setStrokeStyle(2, 0xffffff);
         this.pickupSprites.set(pk.id, s);
       }
-      s.setPosition(pk.x, pk.y);
+      s.setPosition(pk.x, dy);
     }
     for (const [id, s] of this.pickupSprites) {
       if (!seenPickups.has(id)) {
@@ -200,10 +217,10 @@ export class OfflineGameScene extends Phaser.Scene {
           `Mode: ${me.mode} · Tiang #${me.poleIndex + 1}\n` +
           `Ability: ${ability}`
       );
-      const targetY = me.y - 180;
+      const focusY = displayY(me.y);
       this.cameras.main.scrollY = Phaser.Math.Linear(
         this.cameras.main.scrollY,
-        Math.max(-40, targetY),
+        focusY - this.scale.height * 0.35,
         0.12
       );
       this.cameras.main.scrollX = Phaser.Math.Linear(

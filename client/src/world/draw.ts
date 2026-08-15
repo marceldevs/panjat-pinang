@@ -1,42 +1,53 @@
 import Phaser from "phaser";
 import { CONFIG, poleX, PLAYER_COLORS } from "@panjat/shared";
+import { displayY } from "../ui/layout";
 
 const POLE_TOP = CONFIG.prizeHeight * CONFIG.metersToPixels + 80;
 
 export function drawKampungBackground(scene: Phaser.Scene): void {
+  const { width, height } = scene.scale;
   const g = scene.add.graphics().setScrollFactor(0).setDepth(-100);
-  // sky gradient bands
+  // sky → mid → ground bands across full viewport
   g.fillStyle(0x7ec8e3, 1);
-  g.fillRect(0, 0, 960, 220);
+  g.fillRect(0, 0, width, height * 0.4);
   g.fillStyle(0x9fd4a5, 1);
-  g.fillRect(0, 220, 960, 200);
+  g.fillRect(0, height * 0.4, width, height * 0.35);
   g.fillStyle(0xc4a574, 1);
-  g.fillRect(0, 420, 960, 140);
+  g.fillRect(0, height * 0.75, width, height * 0.25);
 
   // distant hills
   const hills = scene.add.graphics().setScrollFactor(0.05).setDepth(-90);
   hills.fillStyle(0x3d8b6e, 1);
-  hills.fillEllipse(200, 360, 420, 160);
-  hills.fillEllipse(620, 370, 500, 180);
-  hills.fillEllipse(900, 350, 300, 140);
+  hills.fillEllipse(width * 0.2, height * 0.68, width * 0.45, height * 0.3);
+  hills.fillEllipse(width * 0.65, height * 0.7, width * 0.52, height * 0.33);
+  hills.fillEllipse(width * 0.95, height * 0.66, width * 0.32, height * 0.26);
 
   // umbul-umbul (red-white streamers)
-  for (let i = 0; i < 8; i++) {
-    const x = 60 + i * 120;
+  const flagCount = Math.max(8, Math.floor(width / 180));
+  for (let i = 0; i < flagCount; i++) {
+    const x = width * 0.06 + i * (width / flagCount);
     const flag = scene.add.graphics().setScrollFactor(0.15).setDepth(-80);
+    const baseY = height * 0.52;
     flag.lineStyle(3, 0x6b4226, 1);
-    flag.lineBetween(x, 280, x, 360);
+    flag.lineBetween(x, baseY, x, baseY + height * 0.15);
     for (let j = 0; j < 5; j++) {
       flag.fillStyle(j % 2 === 0 ? 0xe31c25 : 0xffffff, 1);
-      flag.fillTriangle(x, 285 + j * 12, x + 28, 290 + j * 12, x, 297 + j * 12);
+      flag.fillTriangle(
+        x,
+        baseY + 5 + j * 12,
+        x + 28,
+        baseY + 10 + j * 12,
+        x,
+        baseY + 17 + j * 12
+      );
     }
   }
 
-  // ground strip (scrolls with world y=0)
+  // ground strip near sim y=0 (display y=0); scrolls with world
   const ground = scene.add.rectangle(
     CONFIG.worldWidth / 2,
-    -20,
-    CONFIG.worldWidth + 200,
+    20,
+    CONFIG.worldWidth + 400,
     80,
     0xb08968
   );
@@ -48,16 +59,23 @@ export function drawPoles(scene: Phaser.Scene, oiled: Set<number>): Phaser.GameO
   for (let i = 0; i < CONFIG.poleCount; i++) {
     const x = poleX(i);
     const color = oiled.has(i) ? 0xc9a227 : 0x8b5a2b;
-    const pole = scene.add.rectangle(x, POLE_TOP / 2, CONFIG.poleRadius * 2, POLE_TOP, color);
+    // Pole extends upward (negative display Y) from ground
+    const pole = scene.add.rectangle(
+      x,
+      displayY(POLE_TOP / 2),
+      CONFIG.poleRadius * 2,
+      POLE_TOP,
+      color
+    );
     pole.setData("poleIndex", i);
     c.add(pole);
-    // base
-    c.add(scene.add.rectangle(x, -10, 40, 18, 0x5c4033));
+    // base near ground
+    c.add(scene.add.rectangle(x, 10, 40, 18, 0x5c4033));
   }
-  // prize bundle at top
+  // prize bundle at top of climb
   for (let i = 0; i < CONFIG.poleCount; i++) {
     const x = poleX(i);
-    const prize = scene.add.container(x, POLE_TOP);
+    const prize = scene.add.container(x, displayY(POLE_TOP));
     prize.add(scene.add.circle(0, 0, 16, 0xe31c25));
     prize.add(scene.add.circle(0, 0, 10, 0xffffff));
     prize.add(
