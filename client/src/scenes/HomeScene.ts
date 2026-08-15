@@ -21,7 +21,7 @@ export class HomeScene extends Phaser.Scene {
   private build = () => {
     for (const n of this.nodes) n.destroy();
     this.nodes = [];
-    this.children.removeAll();
+    this.children.removeAll(true);
 
     drawKampungBackground(this);
     const { width, height } = this.scale;

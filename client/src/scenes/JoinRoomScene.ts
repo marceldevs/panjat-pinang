@@ -16,7 +16,7 @@ export class JoinRoomScene extends Phaser.Scene {
   }
 
   private build = () => {
-    this.children.removeAll();
+    this.children.removeAll(true);
     const { width, height } = this.scale;
     const mid = cx(this);
 
